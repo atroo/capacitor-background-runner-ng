@@ -1,0 +1,312 @@
+{
+  "api": {
+    "name": "BackgroundRunnerPlugin",
+    "slug": "backgroundrunnerplugin",
+    "docs": "",
+    "tags": [],
+    "methods": [
+      {
+        "name": "checkPermissions",
+        "signature": "() => Promise<PermissionStatus>",
+        "parameters": [],
+        "returns": "Promise<PermissionStatus>",
+        "tags": [
+          {
+            "name": "since",
+            "text": "1.0.0"
+          }
+        ],
+        "docs": "Check permissions for the various Capacitor device APIs.",
+        "complexTypes": [
+          "PermissionStatus"
+        ],
+        "slug": "checkpermissions"
+      },
+      {
+        "name": "requestPermissions",
+        "signature": "(options: RequestPermissionOptions) => Promise<PermissionStatus>",
+        "parameters": [
+          {
+            "name": "options",
+            "docs": "",
+            "type": "RequestPermissionOptions"
+          }
+        ],
+        "returns": "Promise<PermissionStatus>",
+        "tags": [
+          {
+            "name": "since",
+            "text": "1.0.0"
+          }
+        ],
+        "docs": "Request permission to display local notifications.",
+        "complexTypes": [
+          "PermissionStatus",
+          "RequestPermissionOptions"
+        ],
+        "slug": "requestpermissions"
+      },
+      {
+        "name": "dispatchEvent",
+        "signature": "(options: DispatchEventOptions) => Promise<void>",
+        "parameters": [
+          {
+            "name": "options",
+            "docs": "",
+            "type": "DispatchEventOptions"
+          }
+        ],
+        "returns": "Promise<void>",
+        "tags": [
+          {
+            "name": "param",
+            "text": "options"
+          },
+          {
+            "name": "since",
+            "text": "1.0.0"
+          }
+        ],
+        "docs": "Dispatches an event to the configured runner.",
+        "complexTypes": [
+          "DispatchEventOptions"
+        ],
+        "slug": "dispatchevent"
+      }
+    ],
+    "properties": []
+  },
+  "interfaces": [
+    {
+      "name": "PermissionStatus",
+      "slug": "permissionstatus",
+      "docs": "",
+      "tags": [],
+      "methods": [],
+      "properties": [
+        {
+          "name": "geolocation",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [
+            "PermissionState"
+          ],
+          "type": "PermissionState"
+        },
+        {
+          "name": "notifications",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [
+            "PermissionState"
+          ],
+          "type": "PermissionState"
+        }
+      ]
+    },
+    {
+      "name": "RequestPermissionOptions",
+      "slug": "requestpermissionoptions",
+      "docs": "",
+      "tags": [],
+      "methods": [],
+      "properties": [
+        {
+          "name": "apis",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [
+            "API"
+          ],
+          "type": "API[]"
+        }
+      ]
+    },
+    {
+      "name": "DispatchEventOptions",
+      "slug": "dispatcheventoptions",
+      "docs": "",
+      "tags": [],
+      "methods": [],
+      "properties": [
+        {
+          "name": "label",
+          "tags": [
+            {
+              "text": "1.0.0",
+              "name": "since"
+            }
+          ],
+          "docs": "The runner label to dispatch the event to",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "event",
+          "tags": [
+            {
+              "text": "1.0.0",
+              "name": "since"
+            }
+          ],
+          "docs": "The name of the registered event listener.",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "details",
+          "tags": [],
+          "docs": "",
+          "complexTypes": [],
+          "type": "{ [key: string]: any; }"
+        }
+      ]
+    }
+  ],
+  "enums": [],
+  "typeAliases": [
+    {
+      "name": "PermissionState",
+      "slug": "permissionstate",
+      "docs": "",
+      "types": [
+        {
+          "text": "'prompt'",
+          "complexTypes": []
+        },
+        {
+          "text": "'prompt-with-rationale'",
+          "complexTypes": []
+        },
+        {
+          "text": "'granted'",
+          "complexTypes": []
+        },
+        {
+          "text": "'denied'",
+          "complexTypes": []
+        }
+      ]
+    },
+    {
+      "name": "API",
+      "slug": "api",
+      "docs": "",
+      "types": [
+        {
+          "text": "'geolocation'",
+          "complexTypes": []
+        },
+        {
+          "text": "'notifications'",
+          "complexTypes": []
+        }
+      ]
+    }
+  ],
+  "pluginConfigs": [
+    {
+      "name": "BackgroundRunner",
+      "slug": "backgroundrunner",
+      "properties": [
+        {
+          "name": "label",
+          "tags": [
+            {
+              "text": "1.0.0",
+              "name": "since"
+            },
+            {
+              "text": "\"com.example.background.task\"",
+              "name": "example"
+            }
+          ],
+          "docs": "The name of the runner, used in logs.",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "src",
+          "tags": [
+            {
+              "text": "1.0.0",
+              "name": "since"
+            },
+            {
+              "text": "\"runners/background.js\"",
+              "name": "example"
+            }
+          ],
+          "docs": "The path to the runner JavaScript file, relative to the app bundle.",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "event",
+          "tags": [
+            {
+              "text": "1.0.0",
+              "name": "since"
+            },
+            {
+              "text": "\"myCustomEvent\"",
+              "name": "example"
+            }
+          ],
+          "docs": "The name of the event that will be called when the OS executes the background task.",
+          "complexTypes": [],
+          "type": "string"
+        },
+        {
+          "name": "repeat",
+          "tags": [
+            {
+              "text": "1.0.0",
+              "name": "since"
+            },
+            {
+              "text": "true",
+              "name": "example"
+            }
+          ],
+          "docs": "If background task should repeat based on the interval set in `interval`.",
+          "complexTypes": [],
+          "type": "boolean"
+        },
+        {
+          "name": "interval",
+          "tags": [
+            {
+              "text": "1.0.0",
+              "name": "since"
+            },
+            {
+              "text": "15",
+              "name": "example"
+            }
+          ],
+          "docs": "The number of minutes after the the app is put into the background in which the background task should begin.\n\nIf `repeat` is true, this also specifies the number of minutes between each execution.",
+          "complexTypes": [],
+          "type": "number"
+        },
+        {
+          "name": "autoStart",
+          "tags": [
+            {
+              "text": "1.0.0",
+              "name": "since"
+            },
+            {
+              "text": "true",
+              "name": "example"
+            }
+          ],
+          "docs": "Automatically register and schedule background task on app load.",
+          "complexTypes": [],
+          "type": "boolean | undefined"
+        }
+      ],
+      "docs": "On load, Background Runner will automatically register a\nbackground task that will be scheduled and ran once your app is\nbackgrounded."
+    }
+  ]
+}
