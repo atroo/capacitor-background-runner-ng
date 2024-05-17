@@ -39,11 +39,6 @@ class SQLite(private val context: Context, val config: SQLiteConfig) {
         }
     }
 
-    // fun newConnection(): SQLiteConnection {
-    //     val connection = SQLiteConnection(this)
-    //     return connection
-    // }
-
     @Throws(Exception::class)
     fun setSharedPreferences() {
         try {

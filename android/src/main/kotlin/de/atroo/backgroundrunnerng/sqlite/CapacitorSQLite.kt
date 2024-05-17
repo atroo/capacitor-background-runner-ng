@@ -13,20 +13,10 @@ class CapacitorSQLite(val context: QuickJSContext, var sqlite: SQLite) {
     val mainSQLite: JSObject
     init {
         mainSQLite = context.createNewJSObject();
-        setupNewConnectionFun(mainSQLite)
         setupCreateConnectionFun(mainSQLite)
 
         val globalObj: JSObject = context.getGlobalObject();
         globalObj.setProperty("sqliteNative", mainSQLite);
-    }
-
-    fun setupNewConnectionFun(obj: JSObject) {
-        val newConnectionFun = JSCallFunction { args ->
-            val connection = sqlite.newConnection()
-
-            return@JSCallFunction connection
-        }
-        obj.setProperty("newConnection", newConnectionFun)
     }
 
     fun setupCreateConnectionFun(obj: JSObject) {
