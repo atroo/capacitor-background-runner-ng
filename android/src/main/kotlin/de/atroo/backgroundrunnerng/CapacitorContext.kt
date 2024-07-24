@@ -1,16 +1,23 @@
 package de.atroo.backgroundrunnerng
 
-import com.whl.quickjs.wrapper.JSObject
+import android.util.Log
+import com.getcapacitor.Bridge
 import de.atroo.backgroundrunnerng.runnerengine.Context
-import de.atroo.backgroundrunnerng.sqlite.CapacitorSQLite
-import de.atroo.backgroundrunnerng.sqlite.SQLite
-import de.atroo.backgroundrunnerng.sqlite.SQLiteConfig
 
-class CapacitorContext(androidContext: android.content.Context, name: String) : Context(androidContext, name)  {
-    lateinit var sqlite: CapacitorSQLite
-    override fun setupCapacitorAPI() {
-        var obj: JSObject = context.createNewJSObject();
-        sqlite = CapacitorSQLite(context, SQLite(androidContext, SQLiteConfig()))
+class CapacitorContext(androidContext: android.content.Context, name: String, @Volatile private var bridge: Bridge) : Context(androidContext, name)  {
+    companion object {
+        const val TAG = "CapacitorContext"
+    }
+    lateinit var sqliteAdapter: QuickJSSQLiteAdapter
+    init {
+        Log.d(TAG, "CapacitorContext ctor...bridge is null: ${bridge == null}")
+        setupCapacitorAPI()
     }
 
+    override fun setupCapacitorAPI() {
+        Log.d(TAG, "setupCapacitorAPI...bridge is null: ${bridge == null}")
+        val currentThread = Thread.currentThread()
+        Log.d(TAG, "setupCapacitorAPI, thread: ${currentThread.name}")
+        sqliteAdapter = QuickJSSQLiteAdapter(context, bridge)
+    }
 }

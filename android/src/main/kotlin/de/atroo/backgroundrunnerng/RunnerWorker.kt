@@ -5,11 +5,14 @@ import android.util.Log
 import androidx.work.Data
 import androidx.work.Worker
 import androidx.work.WorkerParameters
-import kotlinx.coroutines.flow.MutableStateFlow
+import com.getcapacitor.Bridge
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 
-class RunnerWorker(private val context: Context, workerParams: WorkerParameters) : Worker(context, workerParams) {
+class RunnerWorker(private val context: Context,
+                   workerParams: WorkerParameters,
+                   private val bridge: Bridge
+) : Worker(context, workerParams) {
     val TAG = "RunnerWorker"
     override fun doWork(): Result {
         Log.d(TAG, "doWork...")
@@ -33,8 +36,12 @@ class RunnerWorker(private val context: Context, workerParams: WorkerParameters)
             val config = RunnerConfig.fromJSON(runnerConfigObj)
 
             runBlocking {
-                val impl = BackgroundRunner(this@RunnerWorker.context)
-                impl.start()
+                val impl = BackgroundRunner(
+                    context = this@RunnerWorker.context,
+                    bridge = this@RunnerWorker.bridge
+                ).also {
+                    it.start()
+                }
                 Log.d(TAG, "executing runner...")
                 impl.execute(config)
                 impl.shutdown()

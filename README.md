@@ -1,11 +1,21 @@
 # @atroo/background-runner-ng
 Capacitor plugin to allow background execution of JavaScript
 
-## Install
+## Install/Usage
 
 ```bash
 npm install @atroo/background-runner-ng
 npx cap sync
+```
+
+Each time you re-install capacitor-sqlite plugin (including the first install), run the following
+```bash
+npm run sqlite-transpile
+```
+
+Each time you change the background.ts file, run:
+```bash
+npm run background-transpile
 ```
 
 ## Config
@@ -16,7 +26,7 @@ Modify capacitor.config.ts
   plugins: {
     BackgroundRunner: {
       label: "com.example.background.task",
-      src: "background.js", //js file only. The folder is fixed. Check the location below
+      src: "background.ts", //ts file only. The folder is fixed. Check the location below
       event: "updateData", //The event corresponds to the script's addEventListener
       repeat: true, //Repeating event
       interval: 15, //Interval of repetition. It should be more than 10. The exact timing is not guaranteed.
@@ -44,14 +54,13 @@ Modify capacitor.config.ts
   },
 ...
 ```
-The src file should be placed here:
+The src file above should be placed here:
 ```
 <<project root>>/src/assets/<<script name>>
 ```
 
 ## About SQLite API
-It intends to implement the interface of it correspondent capacitor plugin.
-Since neither iOs nor Android supports typscript, the implementation is in ES2023.
+The necessary .ts files is transcribed with the above package.json scripts from the capacitor-sqlite plugin.
 
 
 ## API

@@ -1,4 +1,4 @@
-package de.atroo.backgroundrunnerng;
+package de.atroo.backgroundrunnerng
 
 import androidx.work.Data
 import android.content.res.AssetManager
@@ -10,6 +10,7 @@ import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequest
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
+import com.getcapacitor.Bridge
 import com.getcapacitor.JSObject as CapJSObject
 import de.atroo.backgroundrunnerng.runnerengine.Context
 import org.json.JSONObject
@@ -18,24 +19,40 @@ import java.io.InputStreamReader
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-class BackgroundRunner(val context: android.content.Context) {
+class BackgroundRunner(val context: android.content.Context, val bridge: Bridge) {
     val TAG = "BackgroundRunner"
     val config: RunnerConfig
-    private var runner: CapacitorRunner? = null
 
     init {
         config = loadRunnerConfig(context.assets)
+        val currentThread = Thread.currentThread()
+        Log.d(TAG, "Creating worker factory, thread: ${currentThread.name}")
+//        workerFactory = RunnerWorkerFactory(bridge)
+//        val config = Configuration.Builder()
+//            .setWorkerFactory(workerFactory)
+//            .build()
+//
+//        WorkManager.initialize(context, config)
+    }
+
+    fun createContext(androidContext: android.content.Context, name: String): CapacitorContext {
+        val currentThread = Thread.currentThread()
+        Log.d(TAG, "createContext, thread: ${currentThread.name}")
+        Log.d(TAG, "createContext...${bridge == null}")
+        Log.d(TAG, "createContext...${this}")
+
+        val capContext = CapacitorContext(androidContext, name, bridge)
+        return capContext
+    }
+
+    fun destroyContext(name: String) {
+        Log.d(TAG, "unnecessary destroyContext: $name") ///???
     }
 
     fun start() {
-        this.runner = CapacitorRunner()
     }
 
     fun shutdown() {
-        val runner = runner ?: return
-
-//        runner.destroy() ///???
-        this.runner = null
     }
 
     fun scheduleBackgroundTask(androidContext: android.content.Context) {
@@ -65,6 +82,7 @@ class BackgroundRunner(val context: android.content.Context) {
                 .addTag(config.label ?: "")
                 .setConstraints(constraints)
                 .build()
+            Log.d(TAG, "Enqueueing task...")
             WorkManager.getInstance(androidContext).enqueueUniqueWork(config.label ?: "", ExistingWorkPolicy.REPLACE, work)
         } else {
             val work = PeriodicWorkRequest.Builder(RunnerWorker::class.java, interval.toLong(), TimeUnit.MINUTES)
@@ -102,12 +120,11 @@ class BackgroundRunner(val context: android.content.Context) {
         Log.d(TAG, "execute...dataArgs: ${dataArgs.toString()}")
         try {
             val context = initContext(config, callbackId)
-            val waitGroup = CountDownLatch(1)
-
             val result = JSONObject()
             val args = context.cap2JSObject(dataArgs)
+            Log.d(TAG, "execute...args: ${args.toString()}")
             for (element in dataArgs.keys()) {
-                println(element)
+                Log.d(TAG, "element: ${element}")
             }
 
             context.dispatchEvent(config.event, args)
@@ -160,10 +177,10 @@ class BackgroundRunner(val context: android.content.Context) {
 
     @Throws(Exception::class)
     private fun initContext(config: RunnerConfig, callbackId: String?): CapacitorContext {
-        val runner = runner ?: throw Exception("runner is not started")
+//        val runner = runner ?: throw Exception("runner is not started")
         val contextName = callbackId?.let { "${config.label}-$it" } ?: config.label
         val srcFile = readAssetFile(context, "public/assets/", "${config.src}")
-        val context = runner.createContext(context, contextName)
+        val context = createContext(context, contextName)
         context.setupCapacitorAPI()
         context.execute(code = srcFile)
 
@@ -171,8 +188,8 @@ class BackgroundRunner(val context: android.content.Context) {
     }
 
     private fun destroyContext(context: Context) {
-        val runner = this.runner ?: throw Exception("runner is not started")
+//        val runner = this.runner ?: throw Exception("runner is not started")
 
-        runner.destroyContext(context.name)
+        destroyContext(context.name)
     }
 }

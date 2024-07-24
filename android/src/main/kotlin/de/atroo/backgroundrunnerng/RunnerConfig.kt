@@ -33,6 +33,5 @@ data class RunnerConfig( val label: String,
             )
         }
     }
-
 }
 

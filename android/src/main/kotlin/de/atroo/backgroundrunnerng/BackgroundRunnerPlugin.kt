@@ -11,12 +11,17 @@ import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
 import com.getcapacitor.annotation.PermissionCallback
 import com.whl.quickjs.android.QuickJSLoader
-import de.atroo.backgroundrunnerng.sqlite.SQLite
-import de.atroo.backgroundrunnerng.sqlite.SQLiteConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.json.JSONException
 import org.json.JSONObject
+
+import androidx.work.Configuration
+import androidx.work.WorkManager
+import com.getcapacitor.MessageHandler
+import de.atroo.backgroundrunnerng.runnerengine.getPrivateMember
+import de.atroo.backgroundrunnerng.RunnerWorkerFactory
+
 
 @CapacitorPlugin(
     name = "BackgroundRunner",
@@ -33,8 +38,9 @@ import org.json.JSONObject
 )
 class BackgroundRunnerPlugin: Plugin() {
     private var impl: BackgroundRunner? = null
-    private lateinit var config: SQLiteConfig
-    private lateinit var sqliteImpl: SQLite
+//    private lateinit var config: SQLiteConfig
+    private var initialized: Boolean = false
+    private lateinit var workerFactory: RunnerWorkerFactory
 
     companion object {
         const val GEOLOCATION = "geolocation"
@@ -44,34 +50,86 @@ class BackgroundRunnerPlugin: Plugin() {
 
     override fun handleOnPause() {
         super.handleOnPause()
-        Log.d("Background Runner", "registering runner workers")
+        Log.d(TAG, "registering runner workers")
         val ctx: Context
         impl?.scheduleBackgroundTask(this.context)
-    }
-
-    override fun handleOnStop() {
-        super.handleOnStop()
-        Log.d("Background Runner", "shutting down foreground runner")
-       impl?.shutdown()
-    }
-
-    override fun handleOnResume() {
-        super.handleOnResume()
-        Log.d("Background Runner", "starting foreground runner")
-       impl?.start()
     }
 
     override fun load() {
         Log.d(TAG, "load...")
         super.load()
-        config = getSqliteConfig()
-        Log.d(TAG, "load, config, encryption: ${config.isEncryption}")
-        QuickJSLoader.init()
-        sqliteImpl = SQLite(this.context, config)
-        impl = BackgroundRunner(this.context)
-        impl?.start()
         val currentThread = Thread.currentThread()
         Log.d(TAG, "load, currentThread: ${currentThread.name}")
+    }
+
+    override fun handleOnStart() {
+        super.handleOnStart()
+        Log.d(TAG,"handleOnStart...")
+        val pluginIds = getRegisteredPluginIds()
+        for (pluginId in pluginIds) {
+            Log.d(TAG, "load, pluginId: $pluginId")
+        }
+
+        val sqlitePlugin = bridge.getPlugin("CapacitorSQLite")
+        val handle = sqlitePlugin
+        val pluginId = handle.getId()
+        val msgHandler: MessageHandler? = getPrivateMember<MessageHandler>(bridge, "msgHandler")
+
+        if (initialized == false) {
+            QuickJSLoader.init()
+            Log.d(TAG, "BackgroundRunner init...")
+            workerFactory = RunnerWorkerFactory(bridge)
+            val config = Configuration.Builder()
+                .setWorkerFactory(workerFactory)
+                .build()
+
+            WorkManager.initialize(context, config)
+            impl = BackgroundRunner(this.context, this.bridge)
+            impl?.start()
+            initialized = true
+        }
+
+//        delayedCall(10000) {
+//            val data = JSObject().apply {
+//                put("database", "dbName2")
+//                put("version", 1)
+//                put("encrypted", false)
+//                put("readonly", false)
+//            }
+//            val callbackId = "theCallbackId"
+//            val call = PluginCall(msgHandler, "CapacitorSQLite", callbackId, "createConnection", data)
+//            Log.d(TAG, "handleOnStart, invoking...")
+//            handle.invoke("createConnection",  call)
+//            Log.d(TAG, "handleOnStart, pluginId: $pluginId")
+//        }
+    }
+
+    override fun handleOnStop() {
+        super.handleOnStop()
+        Log.d(TAG, "shutting down foreground runner")
+       impl?.shutdown()
+    }
+
+    override fun handleOnResume() {
+        super.handleOnResume()
+        Log.d(TAG, "starting foreground runner")
+       impl?.start()
+    }
+
+    private fun getRegisteredPluginIds(): List<String> {
+        val pluginIds = mutableListOf<String>()
+
+        // Use reflection to access the private plugins field
+        val bridgeClass = bridge.javaClass
+        val pluginsField = bridgeClass.getDeclaredField("plugins")
+        pluginsField.isAccessible = true
+
+        @Suppress("UNCHECKED_CAST")
+        val plugins = pluginsField.get(bridge) as? Map<String, Plugin>
+
+        plugins?.keys?.let { pluginIds.addAll(it) }
+
+        return pluginIds
     }
 
     @PluginMethod
@@ -129,25 +187,4 @@ class BackgroundRunnerPlugin: Plugin() {
     fun registerBackgroundTask(call: PluginCall) {
         call.resolve()
     }
-
-    @Throws(JSONException::class)
-    private fun getSqliteConfig(): SQLiteConfig {
-        val config = SQLiteConfig()
-        val json = getConfig().configJSON
-        val sqliteConfig = json.getJSONObject("sqlite")
-        val aConfig = sqliteConfig.getJSONObject("android")
-        val isEncryption = if (aConfig.has("androidIsEncryption")) aConfig.getBoolean("androidIsEncryption") else config.isEncryption
-        config.isEncryption = isEncryption
-        val androidBiometric = if (aConfig.has("androidBiometric")) aConfig.getJSONObject("androidBiometric") else null
-        androidBiometric?.let {
-            val biometricAuth = if (it.has("biometricAuth") && isEncryption) it.getBoolean("biometricAuth") else config.biometricAuth
-            config.biometricAuth = biometricAuth
-            val biometricTitle = if (it.has("biometricTitle")) it.getString("biometricTitle") else config.biometricTitle
-            config.biometricTitle = biometricTitle
-            val biometricSubTitle = if (it.has("biometricSubTitle")) it.getString("biometricSubTitle") else config.biometricSubTitle
-            config.biometricSubTitle = biometricSubTitle
-        }
-        return config
-    }
-
 }
