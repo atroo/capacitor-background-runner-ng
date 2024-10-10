@@ -1,11 +1,15 @@
 package de.atroo.backgroundrunnerng
 
 import android.content.Context
+import android.os.Handler
+import android.os.HandlerThread
 import android.util.Log
 import androidx.work.Data
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import com.getcapacitor.Bridge
+import com.getcapacitor.Logger
+import com.whl.quickjs.android.QuickJSLoader
 import kotlinx.coroutines.runBlocking
 import org.json.JSONObject
 
@@ -34,17 +38,12 @@ class RunnerWorker(private val context: Context,
             runnerConfigObj.put("interval", 0)
 
             val config = RunnerConfig.fromJSON(runnerConfigObj)
-
-            runBlocking {
-                val impl = BackgroundRunner(
-                    context = this@RunnerWorker.context,
-                    bridge = this@RunnerWorker.bridge
-                ).also {
-                    it.start()
-                }
-                Log.d(TAG, "executing runner...")
+            try {
+                val impl = BackgroundRunner(this.context, this.bridge)
                 impl.execute(config)
-                impl.shutdown()
+            } catch (ex: java.lang.Exception) {
+                Logger.error("Serious error executing plugin", ex)
+                throw RuntimeException(ex)
             }
 
             return Result.success()

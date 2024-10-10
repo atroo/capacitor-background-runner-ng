@@ -45,7 +45,8 @@
     "prepublishOnly": "npm run build",
     "postinstall": "node scripts/setup.js",
     "sqlite-transpile": "node scripts/sqlite-transpile.js",
-    "background-transpile": "node scripts/background-transpile.js"
+    "background-transpile": "node scripts/background-transpile.js",
+    "build:native-bridge": "esbuild native-bridge.ts --bundle --outfile=android/src/main/assets/native-bridge.js --platform=browser"
   },
   "devDependencies": {
     "@capacitor/android": "^6.0.0",
@@ -79,5 +80,8 @@
     "android": {
       "src": "android"
     }
+  },
+  "dependencies": {
+    "esbuild": "^0.24.0"
   }
 }

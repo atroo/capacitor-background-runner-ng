@@ -2,10 +2,16 @@ package de.atroo.backgroundrunnerng;
 
 import android.Manifest
 import android.content.Context
+import android.os.Handler
+import android.os.HandlerThread
 import android.util.Log
+import androidx.work.Configuration
+import androidx.work.WorkManager
 import com.getcapacitor.JSObject
+import com.getcapacitor.Logger
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
+import com.getcapacitor.PluginHandle
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import com.getcapacitor.annotation.Permission
@@ -13,14 +19,7 @@ import com.getcapacitor.annotation.PermissionCallback
 import com.whl.quickjs.android.QuickJSLoader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
-import org.json.JSONException
 import org.json.JSONObject
-
-import androidx.work.Configuration
-import androidx.work.WorkManager
-import com.getcapacitor.MessageHandler
-import de.atroo.backgroundrunnerng.runnerengine.getPrivateMember
-import de.atroo.backgroundrunnerng.RunnerWorkerFactory
 
 
 @CapacitorPlugin(
@@ -65,27 +64,22 @@ class BackgroundRunnerPlugin: Plugin() {
     override fun handleOnStart() {
         super.handleOnStart()
         Log.d(TAG,"handleOnStart...")
-        val pluginIds = getRegisteredPluginIds()
-        for (pluginId in pluginIds) {
-            Log.d(TAG, "load, pluginId: $pluginId")
-        }
 
-        val sqlitePlugin = bridge.getPlugin("CapacitorSQLite")
-        val handle = sqlitePlugin
-        val pluginId = handle.getId()
-        val msgHandler: MessageHandler? = getPrivateMember<MessageHandler>(bridge, "msgHandler")
-
-        if (initialized == false) {
-            QuickJSLoader.init()
+        if (!initialized) {
             Log.d(TAG, "BackgroundRunner init...")
+            // Start our plugin execution threads and handlers
             workerFactory = RunnerWorkerFactory(bridge)
             val config = Configuration.Builder()
                 .setWorkerFactory(workerFactory)
                 .build()
 
+
             WorkManager.initialize(context, config)
-            impl = BackgroundRunner(this.context, this.bridge)
+            QuickJSLoader.init()
+            this.impl = BackgroundRunner(this.context, this.bridge)
+            val impl = this.impl
             impl?.start()
+
             initialized = true
         }
 
@@ -116,7 +110,7 @@ class BackgroundRunnerPlugin: Plugin() {
        impl?.start()
     }
 
-    private fun getRegisteredPluginIds(): List<String> {
+    private fun getRegisteredPlugins(): Map<String, PluginHandle> {
         val pluginIds = mutableListOf<String>()
 
         // Use reflection to access the private plugins field
@@ -124,12 +118,10 @@ class BackgroundRunnerPlugin: Plugin() {
         val pluginsField = bridgeClass.getDeclaredField("plugins")
         pluginsField.isAccessible = true
 
-        @Suppress("UNCHECKED_CAST")
-        val plugins = pluginsField.get(bridge) as? Map<String, Plugin>
+        // @Suppress("UNCHECKED_CAST")
+        val plugins = pluginsField.get(bridge) as Map<String, PluginHandle>
 
-        plugins?.keys?.let { pluginIds.addAll(it) }
-
-        return pluginIds
+        return plugins
     }
 
     @PluginMethod

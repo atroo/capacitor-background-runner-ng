@@ -1,9 +1,10 @@
 package de.atroo.backgroundrunnerng
 
-import androidx.work.Data
-import android.content.res.AssetManager
+import android.os.Handler
+import android.os.HandlerThread
 import android.util.Log
 import androidx.work.Constraints
+import androidx.work.Data
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
@@ -11,20 +12,26 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkManager
 import com.getcapacitor.Bridge
-import com.getcapacitor.JSObject as CapJSObject
-import de.atroo.backgroundrunnerng.runnerengine.Context
+import com.getcapacitor.PluginHandle
+import de.atroo.backgroundrunnerng.runnerengine.JSRuntime
 import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import com.getcapacitor.JSObject as CapJSObject
+
 
 class BackgroundRunner(val context: android.content.Context, val bridge: Bridge) {
-    val TAG = "BackgroundRunner"
-    val config: RunnerConfig
+    private val TAG = "BackgroundRunner"
+    val config: RunnerConfig = RunnerConfig.fromJSON(bridge.config.getPluginConfiguration("BackgroundRunner").configJSON)
+    private val handlerThread = HandlerThread("BackgroundRunner")
+    private var runtime: JSRuntime
+    val handler: Handler
 
     init {
-        config = loadRunnerConfig(context.assets)
+        // Start our plugin execution threads and handlers
+        handlerThread.start()
+        handler = Handler(handlerThread.looper)
+        runtime = initContext(config, null)
         val currentThread = Thread.currentThread()
         Log.d(TAG, "Creating worker factory, thread: ${currentThread.name}")
 //        workerFactory = RunnerWorkerFactory(bridge)
@@ -33,16 +40,6 @@ class BackgroundRunner(val context: android.content.Context, val bridge: Bridge)
 //            .build()
 //
 //        WorkManager.initialize(context, config)
-    }
-
-    fun createContext(androidContext: android.content.Context, name: String): CapacitorContext {
-        val currentThread = Thread.currentThread()
-        Log.d(TAG, "createContext, thread: ${currentThread.name}")
-        Log.d(TAG, "createContext...${bridge == null}")
-        Log.d(TAG, "createContext...${this}")
-
-        val capContext = CapacitorContext(androidContext, name, bridge)
-        return capContext
     }
 
     fun destroyContext(name: String) {
@@ -119,15 +116,17 @@ class BackgroundRunner(val context: android.content.Context, val bridge: Bridge)
     fun execute(config: RunnerConfig, dataArgs: CapJSObject = CapJSObject(), callbackId: String? = null): JSONObject {
         Log.d(TAG, "execute...dataArgs: ${dataArgs.toString()}")
         try {
-            val context = initContext(config, callbackId)
             val result = JSONObject()
-            val args = context.cap2JSObject(dataArgs)
-            Log.d(TAG, "execute...args: ${args.toString()}")
-            for (element in dataArgs.keys()) {
-                Log.d(TAG, "element: ${element}")
-            }
 
-            context.dispatchEvent(config.event, args)
+            this.handler.post {
+                val args = this.runtime.cap2JSObject(dataArgs)
+                Log.d(TAG, "execute...args: ${args.toString()}")
+                for (element in dataArgs.keys()) {
+                    Log.d(TAG, "element: ${element}")
+                }
+
+                this.runtime.dispatchEvent(config.event, args)
+            }
 
             return result
         } catch (e: Exception) {
@@ -143,7 +142,7 @@ class BackgroundRunner(val context: android.content.Context, val bridge: Bridge)
         val waitGroup = CountDownLatch(1)
         var err: Exception? = null
 
-        Thread {
+        this.handler.post(Runnable {
             try {
                 execute(config, inputArgs, callbackId)
             } catch (e: Exception) {
@@ -151,45 +150,66 @@ class BackgroundRunner(val context: android.content.Context, val bridge: Bridge)
                 println("[${config.label}]: ${e.message}")
             }
             waitGroup.countDown()
-        }.start()
+        })
 
         waitGroup.await()
 
         err?.let { throw it }
     }
 
-    private fun loadRunnerConfig(assetManager: AssetManager): RunnerConfig {
-        BufferedReader(InputStreamReader(assetManager.open("capacitor.config.json"))).use { reader ->
-            val buffer = StringBuilder()
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                buffer.append(line).append("\n")
-            }
-             val fileContents = buffer.toString();
+    private fun getRegisteredPlugins(): Map<String, PluginHandle> {
+        val pluginIds = mutableListOf<String>()
 
-            val configObject = JSONObject(fileContents)
-            val plugins = configObject.getJSONObject("plugins") ?: throw Exception("could not read config file")
-            val runnerConfigObj = plugins.getJSONObject("BackgroundRunner") ?: throw Exception("could not read config file")
+        // Use reflection to access the private plugins field
+        val bridgeClass = bridge.javaClass
+        val pluginsField = bridgeClass.getDeclaredField("plugins")
+        pluginsField.isAccessible = true
 
-            return  RunnerConfig.fromJSON(runnerConfigObj)
-        }
+        // @Suppress("UNCHECKED_CAST")
+        val plugins = pluginsField.get(bridge) as Map<String, PluginHandle>
+
+        // TODO Filter on configured plugins
+        return plugins
     }
 
     @Throws(Exception::class)
-    private fun initContext(config: RunnerConfig, callbackId: String?): CapacitorContext {
-//        val runner = runner ?: throw Exception("runner is not started")
+    private fun initContext(config: RunnerConfig, callbackId: String?): JSRuntime {
+        //        val runner = runner ?: throw Exception("runner is not started")
         val contextName = callbackId?.let { "${config.label}-$it" } ?: config.label
         val srcFile = readAssetFile(context, "public/assets/", "${config.src}")
-        val context = createContext(context, contextName)
-        context.setupCapacitorAPI()
-        context.execute(code = srcFile)
 
-        return context
+        val currentThread = Thread.currentThread()
+        Log.d(TAG, "createContext, thread: ${currentThread.name}")
+
+        val plugins = getRegisteredPlugins()
+        for (plugin in plugins.values) {
+            Log.d(TAG, "createContext...${plugin.id}")
+        }
+
+        var self = this
+
+        this.handler.post(Runnable {
+            val runtime = JSRuntime(context, contextName)
+            // create runtime and messagehandler
+            // create winow object for compat
+            val globalObj = runtime.context.getGlobalObject();
+            val win = runtime.context.createNewJSObject()
+            globalObj.setProperty("window", win)
+            // messagehandler injects itself into quickjs runtime
+            val messageHandler = MessageHandler(bridge, runtime, this.handler)
+            // inject native bridge and plugin definitions
+            runtime.setupCapApi(plugins.values, true, true)
+            // execute background.ts
+            runtime.execute(code = srcFile)
+
+            self.runtime = runtime
+        })
+        return runtime
     }
 
-    private fun destroyContext(context: Context) {
+    private fun destroyContext(jsRuntime: JSRuntime) {
 //        val runner = this.runner ?: throw Exception("runner is not started")
 
-        destroyContext(context.name)
+        destroyContext(jsRuntime)
     }
 }

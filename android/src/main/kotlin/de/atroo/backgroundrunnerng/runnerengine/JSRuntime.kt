@@ -1,35 +1,32 @@
 package de.atroo.backgroundrunnerng.runnerengine
 
 import android.util.Log
+import com.getcapacitor.JSExport
+import com.getcapacitor.PluginHandle
 import com.whl.quickjs.android.QuickJSLoader
 import com.whl.quickjs.wrapper.JSCallFunction
 import com.whl.quickjs.wrapper.JSFunction
 import com.whl.quickjs.wrapper.JSObject
 import com.whl.quickjs.wrapper.QuickJSContext
-import de.atroo.backgroundrunnerng.readAssetFile
-import com.getcapacitor.JSObject as CapJSObject
-import com.getcapacitor.JSArray as CapJSArray
-
 import java.util.*
 import kotlin.concurrent.schedule
+import com.getcapacitor.JSArray as CapJSArray
+import com.getcapacitor.JSObject as CapJSObject
 
-abstract class Context(val androidContext: android.content.Context, val name: String) {
+
+class JSRuntime(val androidContext: android.content.Context, val name: String) {
     private val TAG = "Context"
     private val timers = mutableMapOf<Int, Timer>()
     private var nextTimerId = 0
-    protected val context: QuickJSContext
+    val context: QuickJSContext = QuickJSContext.create()
     protected val globalObject: JSObject
 
     init {
-        context = QuickJSContext.create()
         globalObject = context.getGlobalObject()
         val eventListenersObject = context.createNewJSObject()
         globalObject.setProperty("eventListeners", eventListenersObject)
         setupWebAPI()
-        setupModule()
     }
-
-    abstract fun setupCapacitorAPI()
 
     fun execute(code: String): Any? {
         return try {
@@ -138,27 +135,48 @@ abstract class Context(val androidContext: android.content.Context, val name: St
         timers.remove(id)?.cancel()
     }
 
-    fun setupModule() {
-        Log.d(TAG, "setupModule...")
+    /**
+     * Build the JSInjector that will be used to inject JS into files served to the app,
+     * to ensure that Capacitor's JS and the JS for all the plugins is loaded each time.
+     */
+    fun setupCapApi(plugins: Collection<PluginHandle>, isLoggingEnabled: Boolean, isDevMode: Boolean) {
         try {
-            Log.d(TAG, "evaluating sqliteplugin.js")
-            val sqlitePluginSrc = readAssetFile(androidContext, "", "sqliteplugin.js")
-            context.evaluate(sqlitePluginSrc)
-            val sqliteProxySrc = readAssetFile(androidContext, "", "sqliteproxy.js")
-            context.evaluate(sqliteProxySrc)
-            Log.d(TAG, "evaluating sqliteproxy.js END")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error evaluating script", e)
-        }
+            val globalJS: String =
+                JSExport.getGlobalJS(androidContext, isLoggingEnabled, isDevMode)
 
-        Log.d(TAG, "setupModule END...")
+            // native-bridge must be replaced with our adapted impl
+            val bridgeJS: String = JSExport.getBridgeJS(androidContext)
+            val pluginJS: String = JSExport.getPluginJS(plugins)
+            //val cordovaJS: String = JSExport.getCordovaJS(androidContext)
+            //val cordovaPluginsJS: String = JSExport.getCordovaPluginJS(androidContext)
+            //val cordovaPluginsFileJS: String = JSExport.getCordovaPluginsFileJS(androidContext)
+            //val localUrlJS = "window.WEBVIEW_SERVER_URL = '$localUrl';"
+
+            val js = (
+                    globalJS +
+                    "\n\n" +
+                   // localUrlJS +
+                    "\n\n" +
+                    bridgeJS +
+                    "\n\n" +
+                    pluginJS +
+                    "\n\n" +
+                    //cordovaJS +
+                    "\n\n" +
+                    //cordovaPluginsFileJS +
+                    "\n\n" // +
+                    //cordovaPluginsJS
+                )
+            context.evaluate(js)
+        } catch (ex: Exception) {
+            Log.e(TAG,"Unable to export JS. App will not function!", ex)
+        }
     }
 
     fun cap2JSObject(map: CapJSObject): JSObject {
         val jsObject = context.createNewJSObject()
         for (key in map.keys()) {
-            val value = map.get(key)
-            when (value) {
+            when (val value = map.get(key)) {
                 is String -> jsObject.setProperty(key, value)
                 is Int -> jsObject.setProperty(key, value)
                 is Double -> jsObject.setProperty(key, value)
