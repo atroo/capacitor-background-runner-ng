@@ -30,26 +30,7 @@ Modify capacitor.config.ts
       event: "updateData", //The event corresponds to the script's addEventListener
       repeat: true, //Repeating event
       interval: 15, //Interval of repetition. It should be more than 10. The exact timing is not guaranteed.
-      autoStart: true,
-      sqlite: { //SQLite related settings
-        ios: {
-          iosDatabaseLocation: 'Library/CapacitorDatabase',
-          iosIsEncryption: true,
-          iosKeychainPrefix: 'angular-sqlite-app-starter',
-          iosBiometric: {
-            biometricAuth: false,
-            biometricTitle : "Biometric login for capacitor sqlite"
-          },
-        },
-        android: {
-          androidIsEncryption: false, //If the DB uses encryption
-          androidBiometric: {// Not implemented yet.
-            biometricAuth : false,
-            biometricTitle : "Biometric login for capacitor sqlite",
-            biometricSubTitle : "Log in using your biometric"
-          }
-        }
-      }
+      autoStart: true
     },
   },
 ...
